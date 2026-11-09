@@ -1,0 +1,12 @@
+# secrets / local config — never commit these
+.env
+.env.*
+*.env
+
+# python / editor clutter
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+node_modules/
+.vercel/

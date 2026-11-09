@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <script>
+    // Runs synchronously, before the stylesheet below paints anything, so
+    // the page never flashes light-then-dark (or vice versa) on load.
+    // The rest of the dark-mode logic (the actual toggle) lives in app.js.
+    (function () {
+      try {
+        var stored = localStorage.getItem("ecosort_theme");
+        var theme = (stored === "dark" || stored === "light")
+          ? stored
+          : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+      } catch (e) {}
+    })();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>EcoSort — Live Waste Scanner</title>
+  <link rel="stylesheet" href="static/css/style.css">
+  <script defer src="static/js/app.js"></script>
+  <link rel="icon" type="image/png" href="static/img/ecosort-icon-light.png">
+  <script defer src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/ort.min.js"></script>
+  <script defer src="static/js/classifier.js"></script>
+  <script defer src="static/js/detector.js"></script>
+  <script defer src="static/js/result.js"></script>
+  <script defer src="static/js/camera.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+
+<body>
+
+  <div id="splash-screen">
+    <div class="deco-blob blob-glow-teal" style="width:320px;height:320px;left:-100px;top:-40px;"></div>
+    <div class="deco-blob blob-glow-leaf" style="width:260px;height:260px;right:-90px;top:20%;animation-delay:3s;"></div>
+    <div class="deco-blob blob-glow-amber" style="width:240px;height:240px;left:20%;bottom:-100px;animation-delay:6s;"></div>
+    <div class="hope-field" aria-hidden="true">
+      <div class="hope-grain"></div>
+    </div>
+    <div class="splash-content">
+      <div class="logo-circle">
+        <span class="reticle-corner reticle-tl"></span>
+        <span class="reticle-corner reticle-tr"></span>
+        <span class="reticle-corner reticle-bl"></span>
+        <span class="reticle-corner reticle-br"></span>
+        <img src="static/img/ecosort-icon-light.png" alt="" class="logo-icon-img">
+      </div>
+      <h1 class="splash-title"><span class="brand-word-eco">Eco</span><span class="brand-word-sort">Sort</span></h1>
+      <p class="splash-subtitle">Reading the waste stream</p>
+
+      <div class="loader-bar">
+        <div class="loader-fill"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="logo-transition-screen" class="logo-transition-screen hidden" onclick="returnFromLogoTransition()" title="Tap to go back">
+    <div class="hope-field" aria-hidden="true">
+      <svg class="hope-lines" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <line x1="50" y1="42" x2="12" y2="16" />
+        <line x1="50" y1="42" x2="88" y2="20" />
+        <line x1="50" y1="58" x2="14" y2="82" />
+        <line x1="50" y1="58" x2="86" y2="80" />
+        <line x1="50" y1="42" x2="50" y2="10" />
+        <line x1="50" y1="58" x2="50" y2="92" />
+      </svg>
+      <span class="hope-chip k1" style="--x:8%; --y:12%; --d:0s;"><i class="fa-solid fa-bottle-water"></i></span>
+      <span class="hope-chip k2" style="--x:84%; --y:16%; --d:1.2s;"><i class="fa-solid fa-leaf"></i></span>
+      <span class="hope-chip k3" style="--x:10%; --y:78%; --d:2.1s;"><i class="fa-solid fa-triangle-exclamation"></i></span>
+      <span class="hope-chip k4" style="--x:82%; --y:76%; --d:0.6s;"><i class="fa-solid fa-recycle"></i></span>
+      <span class="hope-chip k5" style="--x:46%; --y:6%; --d:1.7s;"><i class="fa-solid fa-box"></i></span>
+      <span class="hope-chip k6" style="--x:46%; --y:88%; --d:2.6s;"><i class="fa-solid fa-map-location-dot"></i></span>
+      <div class="hope-grain"></div>
+    </div>
+    <div class="splash-content" id="logoTransitionContent">
+      <div class="logo-circle" id="transitionLogoCircle">
+        <span class="reticle-corner reticle-tl"></span>
+        <span class="reticle-corner reticle-tr"></span>
+        <span class="reticle-corner reticle-bl"></span>
+        <span class="reticle-corner reticle-br"></span>
+        <img src="static/img/ecosort-icon-light.png" alt="" class="logo-icon-img">
+      </div>
+      <h1 class="splash-title"><span class="brand-word-eco">Eco</span><span class="brand-word-sort">Sort</span></h1>
+      <p class="splash-subtitle">Tap the logo to go back</p>
+    </div>
+  </div>
+
+  <div id="logoFlyClone" class="logo-fly-clone hidden">
+    <img src="static/img/ecosort-icon-light.png" alt="" class="logo-icon-img">
+  </div>
+
+  <!-- Iris/wipe reveal used when leaving the welcome screen: a colored
+       circle grows out from the "Start Scanning" button until it covers
+       the whole viewport, the scan console gets swapped in underneath
+       while hidden behind it, then it shrinks back down to nothing,
+       revealing the console. Position/size are computed in JS from the
+       button's real on-screen rect, so it lines up correctly on any
+       screen size. -->
+  <div id="scanTransitionPanel" class="scan-transition-panel" aria-hidden="true">
+    <div class="scan-transition-inner">
+      <div class="scan-transition-logo">
+        <img src="static/img/ecosort-icon-white.png" alt="" class="logo-icon-img">
+      </div>
+      <p class="scan-transition-label">Opening scanner</p>
+    </div>
+  </div>
+
+  <div id="welcome-screen" class="welcome-screen hidden">
+    <div class="deco-blob blob-sage" style="width:340px;height:340px;left:-120px;top:-60px;"></div>
+    <div class="deco-blob blob-clay" style="width:280px;height:280px;right:-100px;top:10%;animation-delay:3s;"></div>
+    <div class="deco-blob blob-leaf" style="width:260px;height:260px;left:30%;bottom:-120px;animation-delay:6s;"></div>
+    <div class="hope-field" aria-hidden="true">
+      <div class="hope-grain"></div>
+    </div>
+    <div class="welcome-content">
+      <div class="logo-circle welcome-logo" id="welcomeLogoCircle">
+        <span class="reticle-corner reticle-tl"></span>
+        <span class="reticle-corner reticle-tr"></span>
+        <span class="reticle-corner reticle-bl"></span>
+        <span class="reticle-corner reticle-br"></span>
+        <img src="static/img/ecosort-icon-dark.png" alt="" class="logo-icon-img">
+      </div>
+      <h1 class="welcome-title"><span class="brand-word-eco">Eco</span><span class="brand-word-sort">Sort</span></h1>
+      <p class="welcome-tagline">Reduce. Reuse. Recycle.</p>
+
+      <p style="color:var(--ink-soft); font-size:0.85rem; line-height:1.5; margin-bottom:18px;">
+        Snap a photo of any item and EcoSort tells you how to dispose of it — built for everyday
+        use at home, school, or on the go, anywhere you're standing in front of a bin unsure where
+        something goes.
+      </p>
+
+      <div class="about-section welcome-about-section">
+        <div class="about-row">
+          <i class="fa-solid fa-bullseye" style="color:var(--sig-recycle);"></i>
+          <div>
+            <strong>What It Does</strong>
+            <p>Sorts any item into Biodegradable, Hazardous, Recyclable, or Non-recyclable from a photo, and tells you exactly how to dispose of it — no manual lookup needed.</p>
+          </div>
+        </div>
+        <div class="about-row">
+          <i class="fa-solid fa-map-location-dot" style="color:var(--sig-general);"></i>
+          <div>
+            <strong>Where To Use It</strong>
+            <p>Built for residents of Olongapo City — at home, at school, or anywhere you're standing in front of a bin unsure where something goes.</p>
+          </div>
+        </div>
+        <div class="about-row">
+          <i class="fa-solid fa-brain" style="color:var(--sig-hazard);"></i>
+          <div>
+            <strong>The AI</strong>
+            <p>A waste-sorting model trained on real waste photos reads what each item is, right on your device — your photos never leave your phone or computer. Anything flagged hazardous gets a clear warning.</p>
+          </div>
+        </div>
+      </div>
+
+      <button type="button" class="primary-btn welcome-start-btn" id="welcomeStartBtn">
+        <i class="fa-solid fa-camera"></i> Start Scanning
+      </button>
+    </div>
+  </div>
+
+  <div class="page-shell hidden" id="main-content">
+    <div class="app-shell">
+
+      <header class="brand-rail">
+        <div class="brand-mark" id="brandMark" onclick="startLogoTransition(event)" role="button" tabindex="0" title="Back to home">
+          <span class="brand-icon" id="brandIcon"><img src="static/img/ecosort-icon-light.png" alt="" class="logo-icon-img"></span>
+          <div class="brand-word">
+            <span class="brand-name"><span class="brand-word-eco">Eco</span><span class="brand-word-sort">Sort</span></span>
+            <span class="brand-tagline">Live waste scanner</span>
+          </div>
+        </div>
+      </header>
+
+      <nav class="quick-actions-rail">
+        <button type="button" class="rail-btn" title="Junk Shop Map" onclick="openMapModal()">
+          <i class="fa-solid fa-map-location-dot"></i>
+          <span>Map</span>
+        </button>
+        <button type="button" class="rail-btn" title="About EcoSort" onclick="showWelcomeScreen()">
+          <i class="fa-solid fa-circle-info"></i>
+          <span>About</span>
+        </button>
+        <button type="button" class="rail-btn" title="Scan History" onclick="openHistoryModal()">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <span>History</span>
+        </button>
+        <button type="button" class="rail-btn js-theme-toggle" title="Toggle dark mode" aria-pressed="false" onclick="toggleDarkMode()">
+          <i class="fa-solid fa-moon js-theme-icon"></i>
+          <span class="js-theme-label">Dark</span>
+        </button>
+      </nav>
+
+      <main class="scan-console">
+        <div class="console-header">
+          <span class="console-eyebrow">Live scan</span>
+          <h1>Point, scan, sort</h1>
+        </div>
+
+        <div class="flash-stack" id="flashStack"></div>
+
+        <form id="scanForm" novalidate>
+          <input type="file" name="image" id="imageInput" accept="image/*" required hidden>
+
+          <div class="camera-scan-wrap" id="cameraScanWrap">
+            <div class="camera-box" id="cameraBox">
+              <span class="viewfinder-corner vf-tl"></span>
+              <span class="viewfinder-corner vf-tr"></span>
+              <span class="viewfinder-corner vf-bl"></span>
+              <span class="viewfinder-corner vf-br"></span>
+
+              <video id="cameraStream" playsinline autoplay muted></video>
+              <canvas id="captureCanvas" hidden></canvas>
+              <img id="capturedPreview" alt="Captured waste" hidden>
+
+              <div class="camera-overlay" id="cameraOverlay">
+                <i class="fa-solid fa-camera" id="cameraOverlayIcon"></i>
+                <p id="cameraOverlayText">Turn on your camera to scan waste live</p>
+                <button type="button" class="camera-overlay-retry-btn" id="cameraRetryBtn" hidden>
+                  <i class="fa-solid fa-rotate-right"></i> Try again
+                </button>
+              </div>
+
+              <button type="button" class="camera-switch-btn" id="switchCameraBtn" title="Switch Camera" hidden>
+                <i class="fa-solid fa-camera-rotate"></i>
+              </button>
+
+              <button type="button" class="camera-stop-btn" id="stopCameraBtn" title="Turn off camera" hidden>
+                <i class="fa-solid fa-video-slash"></i>
+              </button>
+
+              <div class="scan-boxes-layer" id="scanBoxesLayer" hidden></div>
+
+              <div class="live-scan-label" id="liveScanLabel" hidden>
+                <span class="live-scan-dot"></span>
+                <span id="liveScanText">Scanning…</span>
+                <span class="live-scan-confidence" id="liveScanConfidence"></span>
+              </div>
+            </div>
+
+            <div class="camera-controls" id="cameraControls">
+              <button type="button" class="primary-btn" id="startCameraBtn">
+                <i class="fa-solid fa-video"></i> Turn on camera
+              </button>
+              <p class="camera-fallback-link"><a href="#" id="useFileInsteadLink">or upload a photo instead</a></p>
+            </div>
+
+            <div class="camera-controls" id="captureControls" hidden>
+              <button type="button" class="capture-btn" id="captureBtn" title="Capture Photo">
+                <i class="fa-solid fa-camera"></i>
+              </button>
+            </div>
+
+            <div class="camera-controls confirm-controls" id="confirmControls" hidden>
+              <button type="button" class="ghost-icon-btn" id="retakeBtn" title="Retake">
+                <i class="fa-solid fa-rotate-left"></i>
+              </button>
+              <button type="submit" class="primary-btn" id="scanSubmitBtn">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                Scan waste
+              </button>
+            </div>
+          </div>
+
+          <div class="upload-box" id="fallbackUploadBox" hidden>
+            <button type="button" class="ghost-icon-btn upload-back-btn" id="backToCameraBtn" title="Back to camera">
+              <i class="fa-solid fa-arrow-left"></i> Back to live camera
+            </button>
+            <label for="imageInput" class="upload-label">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+              <span>Click to upload an image</span>
+              <small>JPG, PNG, JPEG</small>
+            </label>
+            <div class="preview-box" id="previewBox" style="display: none;">
+              <img id="previewImage" src="" alt="Preview">
+            </div>
+            <button type="submit" class="primary-btn" id="uploadSubmitBtn" style="margin-top: 14px;">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              Scan waste
+            </button>
+          </div>
+        </form>
+      </main>
+
+      <aside class="telemetry-panel">
+        <div class="telemetry-block reveal">
+          <span class="telemetry-eyebrow">Reading the box</span>
+          <ul class="legend-list">
+            <li class="legend-item"><span class="legend-swatch sig-hazardous"></span>Hazardous</li>
+            <li class="legend-item"><span class="legend-swatch sig-biodegradable"></span>Biodegradable</li>
+            <li class="legend-item"><span class="legend-swatch sig-recyclable"></span>Recyclable</li>
+            <li class="legend-item"><span class="legend-swatch sig-non_recyclable"></span>Non-recyclable</li>
+          </ul>
+        </div>
+
+        <div class="telemetry-block reveal" data-reveal-delay="100">
+          <span class="telemetry-eyebrow">About EcoSort</span>
+          <p>An AI model reads your camera feed live and tells you how to dispose of what it sees — no sign-up, no waiting.</p>
+          <button type="button" class="text-link-btn" onclick="openAboutModal()">Full details <i class="fa-solid fa-arrow-right"></i></button>
+        </div>
+
+        <div class="telemetry-block reveal" data-reveal-delay="200">
+          <span class="telemetry-eyebrow">Nearby drop-off</span>
+          <p>Find junk shops and recycling points near you in Olongapo City.</p>
+          <button type="button" class="text-link-btn" onclick="openMapModal()">Open map <i class="fa-solid fa-arrow-right"></i></button>
+        </div>
+      </aside>
+
+    </div>
+  </div>
+
+
+  <!-- ===== SCAN RESULT (was templates/result.html; now rendered on-device by static/js/result.js) ===== -->
+  <div id="resultPage" hidden>
+    <header class="brand-rail">
+      <div class="brand-mark">
+        <span class="brand-icon"><img src="static/img/ecosort-icon-light.png" alt="" class="logo-icon-img"></span>
+        <div class="brand-word">
+          <span class="brand-name"><span class="brand-word-eco">Eco</span><span class="brand-word-sort">Sort</span></span>
+          <span class="brand-tagline">Scan result</span>
+        </div>
+      </div>
+      <nav class="quick-actions-rail">
+        <button type="button" class="rail-btn" title="Scan History" onclick="openHistoryModal()">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <span>History</span>
+        </button>
+        <button type="button" class="rail-btn js-theme-toggle" title="Toggle dark mode" aria-pressed="false" onclick="toggleDarkMode()">
+          <i class="fa-solid fa-moon js-theme-icon"></i>
+          <span class="js-theme-label">Dark</span>
+        </button>
+      </nav>
+    </header>
+
+    <div class="result-shell fade-up">
+      <div class="result-image-pane">
+        <img id="resultImage" src="" alt="Scanned Waste">
+        <div class="stamp-badge" id="resultStamp"></div>
+      </div>
+
+      <div class="result-info-pane">
+        <span class="result-eyebrow">Classification</span>
+
+        <div class="hazard-banner" id="hazardBanner" role="alert" hidden>
+          <i class="fa-solid fa-triangle-exclamation hazard-icon"></i>
+          <div class="hazard-text">
+            <span class="hazard-title">Hazardous Waste Detected</span>
+            <span class="hazard-subtitle">Do not dispose of this item in a regular bin.</span>
+          </div>
+        </div>
+
+        <div class="result-row" id="resultPredictionRow">
+          <span class="result-label">Prediction</span>
+          <span class="result-value" id="resultPrediction"></span>
+        </div>
+
+        <div class="result-row">
+          <span class="result-label">Confidence</span>
+          <span class="result-value" id="resultConfidence"></span>
+        </div>
+
+        <div class="tip-box" id="resultTipBox">
+          <i class="fa-solid fa-lightbulb" id="resultTipIcon"></i>
+          <p id="resultTip"></p>
+        </div>
+
+        <div class="action-buttons">
+          <button type="button" class="primary-btn action-link" id="scanAgainBtn">
+            <i class="fa-solid fa-camera-rotate"></i> Scan again
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ABOUT MODAL ===== -->
+  <div id="aboutModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-leaf"></i> About EcoSort</h3>
+        <button class="close-btn" onclick="closeAboutModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div style="text-align:center; margin-bottom:18px;">
+        <div class="logo-circle" style="margin:0 auto 14px; width:76px; height:76px; background:var(--sig-organic-tint); border-color: var(--sig-organic);">
+          <img src="static/img/ecosort-icon-dark.png" alt="" class="logo-icon-img">
+        </div>
+        <h2 style="font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.5px; font-size:1.4rem; margin-bottom:6px;"><span class="brand-word-eco">Eco</span><span class="brand-word-sort">Sort</span></h2>
+        <p style="color:var(--ink-soft); font-size:0.85rem; font-family: var(--font-mono);">Reduce. Reuse. Recycle.</p>
+        <p style="color:var(--ink-soft); font-size:0.85rem; line-height:1.5; margin-top:10px;">
+          Snap a photo of any item and EcoSort tells you how to dispose of it — built for everyday
+          use at home, school, or on the go, anywhere you're unsure where something goes.
+        </p>
+      </div>
+      <div class="about-section">
+        <div class="about-row">
+          <i class="fa-solid fa-bullseye" style="color:var(--sig-recycle);"></i>
+          <div>
+            <strong>What It Does</strong>
+            <p>EcoSort sorts any item into Biodegradable, Hazardous, Recyclable, or Non-recyclable from a photo, and tells you exactly how to dispose of it — no manual lookup needed.</p>
+          </div>
+        </div>
+        <div class="about-row">
+          <i class="fa-solid fa-map-location-dot" style="color:var(--sig-general);"></i>
+          <div>
+            <strong>Where To Use It</strong>
+            <p>Built for residents of Olongapo City — at home, at school, or anywhere you're standing in front of a bin unsure where something goes.</p>
+          </div>
+        </div>
+        <div class="about-row">
+          <i class="fa-solid fa-brain" style="color:var(--sig-hazard);"></i>
+          <div>
+            <strong>The AI</strong>
+            <p>A waste-sorting model trained on real waste photos reads what each item is. It runs entirely in your browser, so your photos never leave your device. Anything flagged hazardous gets a clear warning.</p>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center; margin-top:20px; padding-top:16px; border-top:1px solid var(--line);">
+        <p style="color:var(--ink-soft); font-size:0.8rem;">Made for a cleaner environment</p>
+        <p style="color:var(--ink-faint); font-size:0.75rem; margin-top:4px; font-family: var(--font-mono);">Version 1.0 · EcoSort Team</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MAP MODAL ===== -->
+  <div id="mapModal" class="modal">
+    <div class="modal-content" style="max-width:600px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-map-location-dot"></i> Junk Shops — Olongapo City</h3>
+        <button class="close-btn" onclick="closeMapModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="locationStatus" class="location-status">
+        <i class="fa-solid fa-location-crosshairs"></i>
+        <span id="locationStatusText">Locating you…</span>
+        <button id="retryLocationBtn" class="retry-location-btn" onclick="locateUser()" style="display:none;">Retry</button>
+      </div>
+      <div id="ecosortMap" style="width:100%; height:320px; border-radius:4px; overflow:hidden; border:1px solid var(--line); position:relative;">
+        <button id="recenterBtn" class="recenter-btn" style="display:none;" onclick="resumeFollowMode()">
+          <i class="fa-solid fa-location-crosshairs"></i> Recenter
+        </button>
+      </div>
+      <div id="routePanel" class="route-panel" style="display:none;">
+        <div id="routeSummary"></div>
+        <button class="clear-route-btn" onclick="clearRoute()"><i class="fa-solid fa-xmark"></i> Exit navigation</button>
+      </div>
+      <div id="navStepsPanel" class="nav-steps-panel" style="display:none;">
+        <div id="navStepsList" class="nav-steps-list"></div>
+      </div>
+      <p style="color:var(--ink-soft); font-size:0.85rem; margin:14px 0; text-align:center;">
+        <i class="fa-solid fa-circle-info" style="color:var(--sig-recycle);"></i>
+        Tap a pin or "Navigate" on a shop to get live turn-by-turn directions.
+      </p>
+      <div id="shopList" style="margin-top:2px; display:flex; flex-direction:column; gap:10px;"></div>
+    </div>
+  </div>
+
+  <script>
+    // ===== ABOUT MODAL =====
+    function openAboutModal() {
+      document.getElementById('aboutModal').style.display = 'block';
+      document.body.style.overflow = 'hidden';
+      staggerAboutRows();
+    }
+    function closeAboutModal() {
+      document.getElementById('aboutModal').style.display = 'none';
+      document.body.style.overflow = 'auto';
+    }
+
+    // Reveals each .about-row in sequence rather than all at once — reset
+    // and re-triggered on every open so it plays again each time, not just
+    // the first. transition-delay is what staggers them; is-visible on the
+    // next frame is what actually starts the fade/slide.
+    function staggerAboutRows() {
+      const rows = document.querySelectorAll('#aboutModal .about-row');
+      const prefersReducedMotion = window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      rows.forEach((row, i) => {
+        row.classList.add('stagger-in');
+        row.classList.remove('is-visible');
+        row.style.transitionDelay = prefersReducedMotion ? '0ms' : `${i * 90}ms`;
+        void row.offsetWidth; // force reflow so the reset above is committed first
+        requestAnimationFrame(() => row.classList.add('is-visible'));
+      });
+    }
+
+    // ===== MAP MODAL =====
+    const JUNK_SHOPS = [
+      { name: "Atew Junkshop", address: "25 Brill St, Olongapo City", lat: 14.8402091, lng: 120.2838133, phone: "+63 930 222 4791" },
+      { name: "GLO'S Junkshop", address: "25 Brill St, Olongapo City", lat: 14.8401493, lng: 120.2838005, phone: "+63 999 496 3632", rating: "⭐ 5.0" },
+      { name: "Thriftway Junkshop", address: "68 Fendler St, East Tapinac, Olongapo City", lat: 14.8325019, lng: 120.2843624, phone: "+63 949 371 0855" },
+      { name: "Pacleb Junk Shop", address: "191 New Cabalan, Olongapo City", lat: 14.8386389, lng: 120.2838176 },
+      { name: "Nickson Junkshop", address: "Block 14 Lot 1 Mayumi St, Olongapo City", lat: 14.8541131, lng: 120.2916457, phone: "+63 920 286 0483" },
+      { name: "Angeles Junkshop / Kleng Hauling", address: "2071 Purok 10, Old Cabalan, Olongapo City", lat: 14.849471, lng: 120.314867, phone: "+63 919 342 0326", rating: "⭐ 5.0", hours: "Mon–Sun 6AM–6PM" },
+    ];
+
+    let mapInitialized = false;
+    let map = null;
+    let userMarker = null;
+    let userLatLng = null;   // { lat, lng }
+    let watchId = null;
+    let mapLibreLoaded = false;
+
+    // Navigation state
+    let activeShop = null;
+    let navigationActive = false;
+    let currentRoute = null;      // OSRM route object (geometry + legs[0].steps)
+    let currentStepIndex = 0;
+    let lastFix = null;           // { lat, lng, t } — used to derive a heading when the
+                                   // device doesn't report one (most laptops/desktops)
+
+    // Whether the map should auto-recenter/rotate on the user's position.
+    // Previously followUser() ran on every single GPS fix while navigating,
+    // with no way to opt out — so scrolling/panning the map to look ahead
+    // at the route got yanked back to the user's location on the very next
+    // location update (often just a couple seconds later). Now a manual
+    // drag/pan/zoom pauses auto-follow, and a "Recenter" button appears to
+    // resume it on demand instead of it fighting the person for control.
+    let followModeActive = true;
+
+    function openMapModal() {
+      document.getElementById('mapModal').style.display = 'block';
+      document.body.style.overflow = 'hidden';
+      if (!mapInitialized) {
+        loadMapLibre();
+        mapInitialized = true;
+      } else {
+        locateUser();
+      }
+    }
+
+    function closeMapModal() {
+      document.getElementById('mapModal').style.display = 'none';
+      document.body.style.overflow = 'auto';
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      navigationActive = false;
+    }
+
+    // ===== MAP LIBRARY (MapLibre GL — vector tiles, no API key, real rotation/pitch) =====
+    function loadMapLibre() {
+      if (mapLibreLoaded) { initMap(); return; }
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css';
+      document.head.appendChild(link);
+
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js';
+      script.onload = () => { mapLibreLoaded = true; initMap(); };
+      document.head.appendChild(script);
+    }
+
+    function initMap() {
+      map = new maplibregl.Map({
+        container: 'ecosortMap',
+        // OpenFreeMap — free vector tiles, no API key/quota, good street detail
+        // for Olongapo. Vector tiles are what make smooth rotate/pitch (the
+        // driving-camera feel below) possible; raster tiles can't do that well.
+        style: 'https://tiles.openfreemap.org/styles/liberty',
+        center: [120.291, 14.843], // MapLibre uses [lng, lat]
+        zoom: 13,
+      });
+
+      map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right');
+
+      // Pause auto-follow the moment the person actually touches the map —
+      // but only for real interaction, not our own code calling easeTo()/
+      // jumpTo(). MapLibre sets `originalEvent` on the event object when a
+      // move was triggered by mouse/touch/wheel input; it's undefined for
+      // programmatic moves, which is exactly the distinction needed here.
+      map.on('dragstart', (e) => { if (e.originalEvent) pauseFollowMode(); });
+      map.on('zoomstart', (e) => { if (e.originalEvent) pauseFollowMode(); });
+      map.on('rotatestart', (e) => { if (e.originalEvent) pauseFollowMode(); });
+
+      // Geolocation doesn't depend on the map's tiles being loaded — start it
+      // right away so a slow/blocked tile server can never hold it up.
+      locateUser();
+
+      map.on('load', () => {
+        map.addSource('route', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] }
+        });
+        map.addLayer({
+          id: 'route-line',
+          type: 'line',
+          source: 'route',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': '#4A7C59', 'line-width': 5, 'line-opacity': 0.85 }
+        });
+
+        JUNK_SHOPS.forEach((shop, i) => {
+          const el = document.createElement('div');
+          el.className = 'shop-pin';
+          el.innerHTML = '<span>♻️</span>';
+          el.addEventListener('click', () => showShopPopup(shop, i));
+          shop._marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+            .setLngLat([shop.lng, shop.lat])
+            .addTo(map);
+        });
+
+        buildShopList();
+
+        // If a position fix already arrived before the style finished
+        // loading, the marker couldn't be placed yet (map wasn't ready) —
+        // drop it in now that it is.
+        if (userLatLng) updateUserMarker();
+      });
+
+      map.on('error', (e) => {
+        console.error('Map error:', e && e.error);
+      });
+    }
+
+    function showShopPopup(shop, i) {
+      const html = `<div class="shop-popup">
+          <strong>${shop.name}</strong>
+          <span class="shop-popup-line">${shop.address}</span>
+          ${shop.phone ? `<span class="shop-popup-line">📞 ${shop.phone}</span>` : ''}
+          ${shop.hours ? `<span class="shop-popup-line">🕐 ${shop.hours}</span>` : ''}
+          ${shop.rating ? `<span class="shop-popup-line">${shop.rating}</span>` : ''}
+          <button onclick="navigateTo(${i})">Navigate here</button>
+        </div>`;
+      new maplibregl.Popup({ offset: 28 })
+        .setLngLat([shop.lng, shop.lat])
+        .setHTML(html)
+        .addTo(map);
+    }
+
+    // ===== LIVE LOCATION =====
+    function locateUser() {
+      const statusText = document.getElementById('locationStatusText');
+      const retryBtn = document.getElementById('retryLocationBtn');
+      retryBtn.style.display = 'none';
+
+      if (!navigator.geolocation) {
+        statusText.textContent = 'Geolocation isn\'t supported by this browser.';
+        return;
+      }
+
+      // Browsers refuse geolocation entirely on plain http:// (localhost is
+      // exempted). Device GPS being on doesn't matter if this fails — the
+      // page itself isn't allowed to ask.
+      if (!window.isSecureContext) {
+        statusText.textContent = 'This page needs to be loaded over https:// for location to work.';
+        return;
+      }
+
+      statusText.textContent = 'Locating you…';
+
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          userLatLng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          statusText.textContent = navigationActive ? 'Navigating…' : 'Live location on';
+          updateUserMarker(pos);
+          if (!navigationActive) buildShopList();
+        },
+        (err) => {
+          console.error('Geolocation error:', err.code, err.message);
+          if (err.code === 1) {
+            // Device-level "Location Services" and the browser's per-site
+            // permission for this page are two different switches — this is
+            // the site-level one being blocked, which the OS toggle can't fix.
+            statusText.textContent = 'Location blocked for this site — check the browser\'s site permissions (tap the lock/info icon in the address bar), not just your phone\'s Location setting.';
+          } else if (err.code === 2) {
+            statusText.textContent = 'Position unavailable — move somewhere with a clearer GPS/network signal and retry.';
+          } else {
+            statusText.textContent = 'Location request timed out — retry.';
+          }
+          retryBtn.style.display = 'inline-block';
+        },
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+      );
+    }
+
+    function pauseFollowMode() {
+      if (!followModeActive || !navigationActive) return;
+      followModeActive = false;
+      const btn = document.getElementById('recenterBtn');
+      if (btn) btn.style.display = 'flex';
+    }
+
+    function resumeFollowMode() {
+      followModeActive = true;
+      const btn = document.getElementById('recenterBtn');
+      if (btn) btn.style.display = 'none';
+      // Snap back immediately rather than waiting for the next GPS fix, so
+      // tapping Recenter feels instant.
+      if (navigationActive && userLatLng) followUser(lastFixPosition);
+    }
+
+    // followUser() needs the raw GeolocationPosition (for heading/speed) but
+    // resumeFollowMode() only has the last coordinates on hand — this keeps
+    // a reference to the most recent raw position object so Recenter can
+    // reuse it without waiting on a new fix.
+    let lastFixPosition = null;
+
+    function updateUserMarker(pos) {
+      if (!map || !userLatLng) return;
+      if (pos) lastFixPosition = pos;
+
+      if (!userMarker) {
+        const el = document.createElement('div');
+        el.className = 'you-are-here-dot';
+        userMarker = new maplibregl.Marker({ element: el })
+          .setLngLat([userLatLng.lng, userLatLng.lat])
+          .addTo(map);
+
+        // Center on the user the first time we get a fix
+        map.jumpTo({ center: [userLatLng.lng, userLatLng.lat], zoom: 14 });
+      } else {
+        userMarker.setLngLat([userLatLng.lng, userLatLng.lat]);
+      }
+
+      if (navigationActive) {
+        advanceStepIfClose();
+        followUser(pos);
+      }
+
+      lastFix = { lat: userLatLng.lat, lng: userLatLng.lng, t: Date.now() };
+    }
+
+    function bearingBetween(lat1, lng1, lat2, lng2) {
+      const toRad = (d) => d * Math.PI / 180;
+      const toDeg = (r) => r * 180 / Math.PI;
+      const y = Math.sin(toRad(lng2 - lng1)) * Math.cos(toRad(lat2));
+      const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+                Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(toRad(lng2 - lng1));
+      return (toDeg(Math.atan2(y, x)) + 360) % 360;
+    }
+
+    // Rotates + recenters the map to follow the user like a driving nav app.
+    // Uses the device's reported compass heading when it's moving fast enough
+    // to be reliable, otherwise derives a heading from the last two fixes.
+    function followUser(pos) {
+      if (!followModeActive) return; // paused — a manual pan/zoom is in progress, don't fight it
+      let heading = null;
+      if (pos && pos.coords.heading !== null && !isNaN(pos.coords.heading) && pos.coords.speed > 0.5) {
+        heading = pos.coords.heading;
+      } else if (lastFix) {
+        const moved = haversineKm(lastFix.lat, lastFix.lng, userLatLng.lat, userLatLng.lng) * 1000;
+        if (moved > 3) { // ignore GPS jitter while nearly stationary
+          heading = bearingBetween(lastFix.lat, lastFix.lng, userLatLng.lat, userLatLng.lng);
+        }
+      }
+
+      map.easeTo({
+        center: [userLatLng.lng, userLatLng.lat],
+        zoom: 17,
+        pitch: 50,
+        bearing: heading !== null ? heading : map.getBearing(),
+        duration: 500
+      });
+    }
+
+    function haversineKm(lat1, lng1, lat2, lng2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLng / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function buildShopList() {
+      const container = document.getElementById('shopList');
+      container.innerHTML = '';
+
+      let shops = JUNK_SHOPS.map((shop, i) => ({ shop, i }));
+      if (userLatLng) {
+        shops.forEach(entry => {
+          entry.dist = haversineKm(userLatLng.lat, userLatLng.lng, entry.shop.lat, entry.shop.lng);
+        });
+        shops.sort((a, b) => a.dist - b.dist);
+      }
+
+      shops.forEach(({ shop, i, dist }) => {
+        const div = document.createElement('div');
+        div.innerHTML = `
+          <div style="display:flex;align-items:flex-start;gap:12px;background:#FBF8F1;border:1px solid rgba(34,37,31,0.12);border-radius:14px;padding:12px;">
+            <div style="background:#4A7C59;border-radius:12px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1rem;">♻️</div>
+            <div style="flex:1;">
+              <strong style="font-size:0.88rem;color:#22251F;">${shop.name}</strong>
+              ${shop.rating ? `<span style="font-size:0.76rem;color:#3A6247;margin-left:6px;">${shop.rating}</span>` : ''}
+              ${dist !== undefined ? `<span class="distance-badge">${dist < 1 ? Math.round(dist * 1000) + ' m' : dist.toFixed(1) + ' km'}</span>` : ''}
+              <p style="color:rgba(20,23,28,0.62);font-size:0.78rem;margin-top:2px;">${shop.address}</p>
+              ${shop.phone ? `<p style="color:#3A6247;font-size:0.78rem;margin-top:2px;">📞 ${shop.phone}</p>` : ''}
+              ${shop.hours ? `<p style="color:rgba(20,23,28,0.38);font-size:0.74rem;">${shop.hours}</p>` : ''}
+              <button class="navigate-btn" onclick="navigateTo(${i})"><i class="fa-solid fa-diamond-turn-right"></i> Navigate</button>
+            </div>
+          </div>`;
+        container.appendChild(div);
+      });
+    }
+
+    // ===== ROUTING (OSRM public routing API — no key required) =====
+    async function fetchRoute(fromLat, fromLng, toLat, toLng) {
+      const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson&steps=true`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Routing request failed');
+      const data = await res.json();
+      if (data.code !== 'Ok' || !data.routes || !data.routes.length) throw new Error('No route found');
+      return data.routes[0];
+    }
+
+    async function navigateTo(shopIndex) {
+      const shop = JUNK_SHOPS[shopIndex];
+      if (!userLatLng) {
+        alert('Turn on location access first so I know where to route you from.');
+        locateUser();
+        return;
+      }
+
+      activeShop = shop;
+      navigationActive = true;
+      currentStepIndex = 0;
+      followModeActive = true; // fresh navigation always starts in follow mode
+      document.getElementById('recenterBtn').style.display = 'none';
+
+      document.getElementById('routePanel').style.display = 'flex';
+      document.getElementById('routeSummary').innerHTML =
+        `<i class="fa-solid fa-route"></i> Calculating route to ${shop.name}…`;
+
+      await drawRoute(shop);
+    }
+
+    async function drawRoute(shop) {
+      try {
+        const route = await fetchRoute(userLatLng.lat, userLatLng.lng, shop.lat, shop.lng);
+        currentRoute = route;
+
+        map.getSource('route').setData({
+          type: 'Feature',
+          geometry: route.geometry,
+          properties: {}
+        });
+
+        const km = (route.distance / 1000).toFixed(1);
+        const mins = Math.round(route.duration / 60);
+        document.getElementById('routeSummary').innerHTML =
+          `<i class="fa-solid fa-route" style="color:var(--sig-organic);"></i> <strong>${shop.name}</strong> — ${km} km · ~${mins} min`;
+
+        renderSteps(route);
+        map.easeTo({ center: [userLatLng.lng, userLatLng.lat], zoom: 17, pitch: 50, duration: 800 });
+      } catch (err) {
+        console.error('Routing error:', err);
+        document.getElementById('routeSummary').innerHTML =
+          `<i class="fa-solid fa-triangle-exclamation" style="color:var(--sig-hazard);"></i> Couldn't calculate a route right now.`;
+        document.getElementById('navStepsPanel').style.display = 'none';
+      }
+    }
+
+    // ===== TURN-BY-TURN STEPS =====
+    function maneuverIcon(step) {
+      const type = step.maneuver.type;
+      const modifier = step.maneuver.modifier || '';
+      if (type === 'depart') return 'fa-location-arrow';
+      if (type === 'arrive') return 'fa-flag-checkered';
+      if (type === 'roundabout' || type === 'rotary') return 'fa-rotate';
+      if (modifier.includes('left')) return 'fa-arrow-left';
+      if (modifier.includes('right')) return 'fa-arrow-right';
+      return 'fa-arrow-up';
+    }
+
+    function stepInstruction(step) {
+      const type = step.maneuver.type;
+      const modifier = step.maneuver.modifier;
+      const street = step.name ? ` onto ${step.name}` : '';
+      if (type === 'depart') return `Head out${street}`;
+      if (type === 'arrive') return 'Arrive at destination';
+      if (type === 'roundabout' || type === 'rotary') return `Enter the roundabout${street}`;
+      if (modifier) return `Turn ${modifier}${street}`;
+      return `Continue${street}`;
+    }
+
+    function renderSteps(route) {
+      const list = document.getElementById('navStepsList');
+      list.innerHTML = '';
+      const steps = route.legs[0].steps;
+
+      steps.forEach((step, i) => {
+        const div = document.createElement('div');
+        div.className = 'nav-step' + (i === currentStepIndex ? ' active' : '');
+        div.dataset.index = i;
+        const dist = step.distance > 950 ? `${(step.distance / 1000).toFixed(1)} km` : `${Math.round(step.distance)} m`;
+        div.innerHTML = `<i class="fa-solid ${maneuverIcon(step)}"></i>
+          <div class="nav-step-text"><span>${stepInstruction(step)}</span><small>${dist}</small></div>`;
+        list.appendChild(div);
+      });
+
+      document.getElementById('navStepsPanel').style.display = 'block';
+    }
+
+    // As the user's live position gets close to the next maneuver point,
+    // advance which step is highlighted — this is what makes the panel feel
+    // like real turn-by-turn instead of a static direction list.
+    function advanceStepIfClose() {
+      if (!currentRoute || !userLatLng) return;
+      const steps = currentRoute.legs[0].steps;
+      if (currentStepIndex >= steps.length - 1) return;
+
+      const nextManeuver = steps[currentStepIndex + 1].maneuver.location; // [lng, lat]
+      const distToNext = haversineKm(userLatLng.lat, userLatLng.lng, nextManeuver[1], nextManeuver[0]) * 1000;
+
+      if (distToNext < 25) {
+        currentStepIndex++;
+        const items = document.querySelectorAll('#navStepsList .nav-step');
+        items.forEach((el, i) => {
+          el.classList.toggle('active', i === currentStepIndex);
+          el.classList.toggle('done', i < currentStepIndex);
+        });
+        const activeEl = document.querySelector('#navStepsList .nav-step.active');
+        if (activeEl) activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+        if (currentStepIndex === steps.length - 1) {
+          document.getElementById('routeSummary').innerHTML =
+            `<i class="fa-solid fa-flag-checkered" style="color:var(--sig-organic);"></i> Arriving at ${activeShop.name}`;
+        }
+      }
+    }
+
+    function clearRoute() {
+      navigationActive = false;
+      activeShop = null;
+      currentRoute = null;
+      currentStepIndex = 0;
+      followModeActive = true;
+      document.getElementById('recenterBtn').style.display = 'none';
+
+      if (map && map.getSource('route')) {
+        map.getSource('route').setData({ type: 'FeatureCollection', features: [] });
+        map.easeTo({ pitch: 0, bearing: 0, zoom: 14, duration: 600 });
+      }
+
+      document.getElementById('routePanel').style.display = 'none';
+      document.getElementById('navStepsPanel').style.display = 'none';
+    }
+
+    window.addEventListener('click', function(e) {
+      if (e.target === document.getElementById('aboutModal')) closeAboutModal();
+      if (e.target === document.getElementById('mapModal')) closeMapModal();
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { closeAboutModal(); closeMapModal(); }
+    });
+  </script>
+
+</body>
+
+</html>
