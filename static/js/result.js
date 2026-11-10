@@ -81,6 +81,8 @@
     const confidenceText = result.confidence.toFixed(2) + "%";
     const hazard = result.is_hazard;
 
+    $("resultPage").dataset.category = result.raw_label || "";
+    $("resultPage").style.setProperty("--conf", Math.max(0, Math.min(100, Number(result.confidence) || 0)) + "%");
     $("resultImage").src = imageUrl;
     $("resultStamp").textContent = result.prediction;
     $("resultStamp").classList.toggle("stamp-badge-hazard", hazard);

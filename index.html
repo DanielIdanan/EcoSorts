@@ -19,9 +19,17 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>EcoSort — Live Waste Scanner</title>
+  <meta name="description" content="Point your camera at any item and EcoSort tells you whether it is biodegradable, hazardous, recyclable or non-recyclable. On-device AI, no sign-up. Made for Olongapo City.">
+  <meta name="theme-color" content="#f5f2ea" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#08100b" media="(prefers-color-scheme: dark)">
+  <link rel="icon" type="image/svg+xml" href="static/img/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="static/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="static/img/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..600&family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap">
   <link rel="stylesheet" href="static/css/style.css">
   <script defer src="static/js/app.js"></script>
-  <link rel="icon" type="image/png" href="static/img/ecosort-icon-light.png">
   <script defer src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/ort.min.js"></script>
   <script defer src="static/js/classifier.js"></script>
   <script defer src="static/js/detector.js"></script>
@@ -32,55 +40,26 @@
 
 <body>
 
+  <!-- EcoSort mark sprite: <svg><use href="#ecosort-mark"/></svg> — colour comes from currentColor -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="ecosort-mark" viewBox="0 0 256 256"><path fill="currentColor" d="M128 118.45L223.03 23.42A176.92 176.92 0 0 0 78.42 68.87ZM137.55 128L229.87 35.68A230.96 230.96 0 0 1 169.47 159.93ZM118.45 128L23.42 223.03A176.92 176.92 0 0 1 68.87 78.42ZM128 137.55L35.68 229.87A230.96 230.96 0 0 0 159.93 169.47Z"/></symbol></svg>
+
   <div id="splash-screen">
-    <div class="deco-blob blob-glow-teal" style="width:320px;height:320px;left:-100px;top:-40px;"></div>
-    <div class="deco-blob blob-glow-leaf" style="width:260px;height:260px;right:-90px;top:20%;animation-delay:3s;"></div>
-    <div class="deco-blob blob-glow-amber" style="width:240px;height:240px;left:20%;bottom:-100px;animation-delay:6s;"></div>
-    <div class="hope-field" aria-hidden="true">
-      <div class="hope-grain"></div>
-    </div>
+    <div class="ambient" aria-hidden="true"></div>
     <div class="splash-content">
       <div class="logo-circle">
-        <span class="reticle-corner reticle-tl"></span>
-        <span class="reticle-corner reticle-tr"></span>
-        <span class="reticle-corner reticle-bl"></span>
-        <span class="reticle-corner reticle-br"></span>
-        <img src="static/img/ecosort-icon-light.png" alt="" class="logo-icon-img">
+        <svg class="logo-icon-img logo-assemble" viewBox="0 0 256 256" aria-hidden="true" focusable="false" fill="currentColor"><path class="piece p1" d="M128 118.45L223.03 23.42A176.92 176.92 0 0 0 78.42 68.87Z"/><path class="piece p2" d="M137.55 128L229.87 35.68A230.96 230.96 0 0 1 169.47 159.93Z"/><path class="piece p3" d="M118.45 128L23.42 223.03A176.92 176.92 0 0 1 68.87 78.42Z"/><path class="piece p4" d="M128 137.55L35.68 229.87A230.96 230.96 0 0 0 159.93 169.47Z"/></svg>
       </div>
       <h1 class="splash-title"><span class="brand-word-eco">Eco</span><span class="brand-word-sort">Sort</span></h1>
       <p class="splash-subtitle">Reading the waste stream</p>
-
-      <div class="loader-bar">
-        <div class="loader-fill"></div>
-      </div>
+      <div class="loader-bar"><div class="loader-fill"></div></div>
     </div>
   </div>
 
   <div id="logo-transition-screen" class="logo-transition-screen hidden" onclick="returnFromLogoTransition()" title="Tap to go back">
-    <div class="hope-field" aria-hidden="true">
-      <svg class="hope-lines" viewBox="0 0 100 100" preserveAspectRatio="none">
-        <line x1="50" y1="42" x2="12" y2="16" />
-        <line x1="50" y1="42" x2="88" y2="20" />
-        <line x1="50" y1="58" x2="14" y2="82" />
-        <line x1="50" y1="58" x2="86" y2="80" />
-        <line x1="50" y1="42" x2="50" y2="10" />
-        <line x1="50" y1="58" x2="50" y2="92" />
-      </svg>
-      <span class="hope-chip k1" style="--x:8%; --y:12%; --d:0s;"><i class="fa-solid fa-bottle-water"></i></span>
-      <span class="hope-chip k2" style="--x:84%; --y:16%; --d:1.2s;"><i class="fa-solid fa-leaf"></i></span>
-      <span class="hope-chip k3" style="--x:10%; --y:78%; --d:2.1s;"><i class="fa-solid fa-triangle-exclamation"></i></span>
-      <span class="hope-chip k4" style="--x:82%; --y:76%; --d:0.6s;"><i class="fa-solid fa-recycle"></i></span>
-      <span class="hope-chip k5" style="--x:46%; --y:6%; --d:1.7s;"><i class="fa-solid fa-box"></i></span>
-      <span class="hope-chip k6" style="--x:46%; --y:88%; --d:2.6s;"><i class="fa-solid fa-map-location-dot"></i></span>
-      <div class="hope-grain"></div>
-    </div>
+    <div class="ambient" aria-hidden="true"></div>
     <div class="splash-content" id="logoTransitionContent">
       <div class="logo-circle" id="transitionLogoCircle">
-        <span class="reticle-corner reticle-tl"></span>
-        <span class="reticle-corner reticle-tr"></span>
-        <span class="reticle-corner reticle-bl"></span>
-        <span class="reticle-corner reticle-br"></span>
-        <img src="static/img/ecosort-icon-light.png" alt="" class="logo-icon-img">
+        <svg class="logo-icon-img" aria-hidden="true"><use href="#ecosort-mark"/></svg>
       </div>
       <h1 class="splash-title"><span class="brand-word-eco">Eco</span><span class="brand-word-sort">Sort</span></h1>
       <p class="splash-subtitle">Tap the logo to go back</p>
@@ -88,76 +67,65 @@
   </div>
 
   <div id="logoFlyClone" class="logo-fly-clone hidden">
-    <img src="static/img/ecosort-icon-light.png" alt="" class="logo-icon-img">
+    <svg class="logo-icon-img" aria-hidden="true"><use href="#ecosort-mark"/></svg>
   </div>
 
-  <!-- Iris/wipe reveal used when leaving the welcome screen: a colored
-       circle grows out from the "Start Scanning" button until it covers
-       the whole viewport, the scan console gets swapped in underneath
-       while hidden behind it, then it shrinks back down to nothing,
-       revealing the console. Position/size are computed in JS from the
-       button's real on-screen rect, so it lines up correctly on any
-       screen size. -->
+  <!-- Iris reveal used when leaving the welcome screen: a circle grows out from the
+       "Start Scanning" button until it covers the viewport, the console is swapped in
+       underneath while hidden, then it shrinks away. Geometry is computed in app.js. -->
   <div id="scanTransitionPanel" class="scan-transition-panel" aria-hidden="true">
     <div class="scan-transition-inner">
       <div class="scan-transition-logo">
-        <img src="static/img/ecosort-icon-white.png" alt="" class="logo-icon-img">
+        <svg class="logo-icon-img" aria-hidden="true"><use href="#ecosort-mark"/></svg>
       </div>
       <p class="scan-transition-label">Opening scanner</p>
     </div>
   </div>
 
   <div id="welcome-screen" class="welcome-screen hidden">
-    <div class="deco-blob blob-sage" style="width:340px;height:340px;left:-120px;top:-60px;"></div>
-    <div class="deco-blob blob-clay" style="width:280px;height:280px;right:-100px;top:10%;animation-delay:3s;"></div>
-    <div class="deco-blob blob-leaf" style="width:260px;height:260px;left:30%;bottom:-120px;animation-delay:6s;"></div>
-    <div class="hope-field" aria-hidden="true">
-      <div class="hope-grain"></div>
-    </div>
     <div class="welcome-content">
-      <div class="logo-circle welcome-logo" id="welcomeLogoCircle">
-        <span class="reticle-corner reticle-tl"></span>
-        <span class="reticle-corner reticle-tr"></span>
-        <span class="reticle-corner reticle-bl"></span>
-        <span class="reticle-corner reticle-br"></span>
-        <img src="static/img/ecosort-icon-dark.png" alt="" class="logo-icon-img">
+      <div class="welcome-hero">
+        <div class="logo-circle welcome-logo" id="welcomeLogoCircle">
+          <svg class="logo-icon-img" aria-hidden="true"><use href="#ecosort-mark"/></svg>
+        </div>
+        <h1 class="welcome-title"><span class="brand-word-eco">Eco</span><span class="brand-word-sort">Sort</span></h1>
+        <p class="welcome-tagline">Reduce. Reuse. Recycle.</p>
+        <p class="welcome-lede">Snap a photo of any item and EcoSort tells you how to dispose of it. Built for everyday use at home, at school, or anywhere you're standing in front of a bin, unsure where something goes.</p>
+        <div class="signal-strip" aria-label="The four sorting categories">
+          <span class="signal-chip c-bio">Biodegradable</span>
+          <span class="signal-chip c-recycle">Recyclable</span>
+          <span class="signal-chip c-hazard">Hazardous</span>
+          <span class="signal-chip c-general">Non-recyclable</span>
+        </div>
+        <button type="button" class="primary-btn welcome-start-btn" id="welcomeStartBtn">
+          <i class="fa-solid fa-camera"></i> Start Scanning
+        </button>
+        <p class="welcome-foot">Runs on your device · Photos never leave it</p>
       </div>
-      <h1 class="welcome-title"><span class="brand-word-eco">Eco</span><span class="brand-word-sort">Sort</span></h1>
-      <p class="welcome-tagline">Reduce. Reuse. Recycle.</p>
-
-      <p style="color:var(--ink-soft); font-size:0.85rem; line-height:1.5; margin-bottom:18px;">
-        Snap a photo of any item and EcoSort tells you how to dispose of it — built for everyday
-        use at home, school, or on the go, anywhere you're standing in front of a bin unsure where
-        something goes.
-      </p>
 
       <div class="about-section welcome-about-section">
         <div class="about-row">
-          <i class="fa-solid fa-bullseye" style="color:var(--sig-recycle);"></i>
+          <i class="fa-solid fa-bullseye"></i>
           <div>
             <strong>What It Does</strong>
-            <p>Sorts any item into Biodegradable, Hazardous, Recyclable, or Non-recyclable from a photo, and tells you exactly how to dispose of it — no manual lookup needed.</p>
+            <p>Sorts any item into Biodegradable, Hazardous, Recyclable, or Non-recyclable from a photo, and tells you exactly how to dispose of it. No manual lookup needed.</p>
           </div>
         </div>
         <div class="about-row">
-          <i class="fa-solid fa-map-location-dot" style="color:var(--sig-general);"></i>
+          <i class="fa-solid fa-map-location-dot"></i>
           <div>
             <strong>Where To Use It</strong>
-            <p>Built for residents of Olongapo City — at home, at school, or anywhere you're standing in front of a bin unsure where something goes.</p>
+            <p>Built for residents of Olongapo City: at home, at school, or anywhere you're standing in front of a bin unsure where something goes.</p>
           </div>
         </div>
         <div class="about-row">
-          <i class="fa-solid fa-brain" style="color:var(--sig-hazard);"></i>
+          <i class="fa-solid fa-brain"></i>
           <div>
             <strong>The AI</strong>
-            <p>A waste-sorting model trained on real waste photos reads what each item is, right on your device — your photos never leave your phone or computer. Anything flagged hazardous gets a clear warning.</p>
+            <p>A waste-sorting model trained on real waste photos reads what each item is, right on your device. Your photos never leave your phone or computer. Anything flagged hazardous gets a clear warning.</p>
           </div>
         </div>
       </div>
-
-      <button type="button" class="primary-btn welcome-start-btn" id="welcomeStartBtn">
-        <i class="fa-solid fa-camera"></i> Start Scanning
-      </button>
     </div>
   </div>
 
@@ -166,7 +134,7 @@
 
       <header class="brand-rail">
         <div class="brand-mark" id="brandMark" onclick="startLogoTransition(event)" role="button" tabindex="0" title="Back to home">
-          <span class="brand-icon" id="brandIcon"><img src="static/img/ecosort-icon-light.png" alt="" class="logo-icon-img"></span>
+          <span class="brand-icon" id="brandIcon"><svg class="logo-icon-img" aria-hidden="true"><use href="#ecosort-mark"/></svg></span>
           <div class="brand-word">
             <span class="brand-name"><span class="brand-word-eco">Eco</span><span class="brand-word-sort">Sort</span></span>
             <span class="brand-tagline">Live waste scanner</span>
@@ -174,7 +142,7 @@
         </div>
       </header>
 
-      <nav class="quick-actions-rail">
+      <nav class="quick-actions-rail" aria-label="Main">
         <button type="button" class="rail-btn" title="Junk Shop Map" onclick="openMapModal()">
           <i class="fa-solid fa-map-location-dot"></i>
           <span>Map</span>
@@ -196,7 +164,7 @@
       <main class="scan-console">
         <div class="console-header">
           <span class="console-eyebrow">Live scan</span>
-          <h1>Point, scan, sort</h1>
+          <h1>Point, scan, <em class="brand-word-sort">sort.</em></h1>
         </div>
 
         <div class="flash-stack" id="flashStack"></div>
@@ -223,11 +191,11 @@
                 </button>
               </div>
 
-              <button type="button" class="camera-switch-btn" id="switchCameraBtn" title="Switch Camera" hidden>
+              <button type="button" class="camera-switch-btn" id="switchCameraBtn" title="Switch Camera" aria-label="Switch camera" hidden>
                 <i class="fa-solid fa-camera-rotate"></i>
               </button>
 
-              <button type="button" class="camera-stop-btn" id="stopCameraBtn" title="Turn off camera" hidden>
+              <button type="button" class="camera-stop-btn" id="stopCameraBtn" title="Turn off camera" aria-label="Turn off camera" hidden>
                 <i class="fa-solid fa-video-slash"></i>
               </button>
 
@@ -248,13 +216,13 @@
             </div>
 
             <div class="camera-controls" id="captureControls" hidden>
-              <button type="button" class="capture-btn" id="captureBtn" title="Capture Photo">
+              <button type="button" class="capture-btn" id="captureBtn" title="Capture Photo" aria-label="Capture photo">
                 <i class="fa-solid fa-camera"></i>
               </button>
             </div>
 
             <div class="camera-controls confirm-controls" id="confirmControls" hidden>
-              <button type="button" class="ghost-icon-btn" id="retakeBtn" title="Retake">
+              <button type="button" class="ghost-icon-btn" id="retakeBtn" title="Retake" aria-label="Retake">
                 <i class="fa-solid fa-rotate-left"></i>
               </button>
               <button type="submit" class="primary-btn" id="scanSubmitBtn">
@@ -271,12 +239,12 @@
             <label for="imageInput" class="upload-label">
               <i class="fa-solid fa-cloud-arrow-up"></i>
               <span>Click to upload an image</span>
-              <small>JPG, PNG, JPEG</small>
+              <small>JPG, PNG, WEBP</small>
             </label>
             <div class="preview-box" id="previewBox" style="display: none;">
               <img id="previewImage" src="" alt="Preview">
             </div>
-            <button type="submit" class="primary-btn" id="uploadSubmitBtn" style="margin-top: 14px;">
+            <button type="submit" class="primary-btn" id="uploadSubmitBtn" style="width:100%;">
               <i class="fa-solid fa-magnifying-glass"></i>
               Scan waste
             </button>
@@ -297,7 +265,7 @@
 
         <div class="telemetry-block reveal" data-reveal-delay="100">
           <span class="telemetry-eyebrow">About EcoSort</span>
-          <p>An AI model reads your camera feed live and tells you how to dispose of what it sees — no sign-up, no waiting.</p>
+          <p>An AI model reads your camera feed live and tells you how to dispose of what it sees. No sign-up, no waiting.</p>
           <button type="button" class="text-link-btn" onclick="openAboutModal()">Full details <i class="fa-solid fa-arrow-right"></i></button>
         </div>
 
@@ -312,17 +280,17 @@
   </div>
 
 
-  <!-- ===== SCAN RESULT (was templates/result.html; now rendered on-device by static/js/result.js) ===== -->
+  <!-- ===== SCAN RESULT (rendered on-device by static/js/result.js) ===== -->
   <div id="resultPage" hidden>
     <header class="brand-rail">
       <div class="brand-mark">
-        <span class="brand-icon"><img src="static/img/ecosort-icon-light.png" alt="" class="logo-icon-img"></span>
+        <span class="brand-icon"><svg class="logo-icon-img" aria-hidden="true"><use href="#ecosort-mark"/></svg></span>
         <div class="brand-word">
           <span class="brand-name"><span class="brand-word-eco">Eco</span><span class="brand-word-sort">Sort</span></span>
           <span class="brand-tagline">Scan result</span>
         </div>
       </div>
-      <nav class="quick-actions-rail">
+      <nav class="quick-actions-rail" aria-label="Result">
         <button type="button" class="rail-btn" title="Scan History" onclick="openHistoryModal()">
           <i class="fa-solid fa-clock-rotate-left"></i>
           <span>History</span>
@@ -356,7 +324,7 @@
           <span class="result-value" id="resultPrediction"></span>
         </div>
 
-        <div class="result-row">
+        <div class="result-row result-row-meter">
           <span class="result-label">Confidence</span>
           <span class="result-value" id="resultConfidence"></span>
         </div>
@@ -380,62 +348,59 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3><i class="fa-solid fa-leaf"></i> About EcoSort</h3>
-        <button class="close-btn" onclick="closeAboutModal()"><i class="fa-solid fa-xmark"></i></button>
+        <button class="close-btn" onclick="closeAboutModal()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <div style="text-align:center; margin-bottom:18px;">
-        <div class="logo-circle" style="margin:0 auto 14px; width:76px; height:76px; background:var(--sig-organic-tint); border-color: var(--sig-organic);">
-          <img src="static/img/ecosort-icon-dark.png" alt="" class="logo-icon-img">
+      <div class="about-hero">
+        <div class="logo-circle">
+          <svg class="logo-icon-img" aria-hidden="true"><use href="#ecosort-mark"/></svg>
         </div>
-        <h2 style="font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.5px; font-size:1.4rem; margin-bottom:6px;"><span class="brand-word-eco">Eco</span><span class="brand-word-sort">Sort</span></h2>
-        <p style="color:var(--ink-soft); font-size:0.85rem; font-family: var(--font-mono);">Reduce. Reuse. Recycle.</p>
-        <p style="color:var(--ink-soft); font-size:0.85rem; line-height:1.5; margin-top:10px;">
-          Snap a photo of any item and EcoSort tells you how to dispose of it — built for everyday
-          use at home, school, or on the go, anywhere you're unsure where something goes.
-        </p>
+        <h2><span class="brand-word-eco">Eco</span><span class="brand-word-sort">Sort</span></h2>
+        <p class="mono">Reduce. Reuse. Recycle.</p>
+        <p class="lede">Snap a photo of any item and EcoSort tells you how to dispose of it. Built for everyday use at home, at school, or on the go, anywhere you're unsure where something goes.</p>
       </div>
       <div class="about-section">
         <div class="about-row">
-          <i class="fa-solid fa-bullseye" style="color:var(--sig-recycle);"></i>
+          <i class="fa-solid fa-bullseye"></i>
           <div>
             <strong>What It Does</strong>
-            <p>EcoSort sorts any item into Biodegradable, Hazardous, Recyclable, or Non-recyclable from a photo, and tells you exactly how to dispose of it — no manual lookup needed.</p>
+            <p>EcoSort sorts any item into Biodegradable, Hazardous, Recyclable, or Non-recyclable from a photo, and tells you exactly how to dispose of it. No manual lookup needed.</p>
           </div>
         </div>
         <div class="about-row">
-          <i class="fa-solid fa-map-location-dot" style="color:var(--sig-general);"></i>
+          <i class="fa-solid fa-map-location-dot"></i>
           <div>
             <strong>Where To Use It</strong>
-            <p>Built for residents of Olongapo City — at home, at school, or anywhere you're standing in front of a bin unsure where something goes.</p>
+            <p>Built for residents of Olongapo City: at home, at school, or anywhere you're standing in front of a bin unsure where something goes.</p>
           </div>
         </div>
         <div class="about-row">
-          <i class="fa-solid fa-brain" style="color:var(--sig-hazard);"></i>
+          <i class="fa-solid fa-brain"></i>
           <div>
             <strong>The AI</strong>
             <p>A waste-sorting model trained on real waste photos reads what each item is. It runs entirely in your browser, so your photos never leave your device. Anything flagged hazardous gets a clear warning.</p>
           </div>
         </div>
       </div>
-      <div style="text-align:center; margin-top:20px; padding-top:16px; border-top:1px solid var(--line);">
-        <p style="color:var(--ink-soft); font-size:0.8rem;">Made for a cleaner environment</p>
-        <p style="color:var(--ink-faint); font-size:0.75rem; margin-top:4px; font-family: var(--font-mono);">Version 1.0 · EcoSort Team</p>
+      <div class="about-foot">
+        <p>Made for a cleaner environment</p>
+        <p class="mono">Version 2.0 · EcoSort Team</p>
       </div>
     </div>
   </div>
 
   <!-- ===== MAP MODAL ===== -->
   <div id="mapModal" class="modal">
-    <div class="modal-content" style="max-width:600px;">
+    <div class="modal-content modal-wide">
       <div class="modal-header">
-        <h3><i class="fa-solid fa-map-location-dot"></i> Junk Shops — Olongapo City</h3>
-        <button class="close-btn" onclick="closeMapModal()"><i class="fa-solid fa-xmark"></i></button>
+        <h3><i class="fa-solid fa-map-location-dot"></i> Junk Shops · Olongapo City</h3>
+        <button class="close-btn" onclick="closeMapModal()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div id="locationStatus" class="location-status">
         <i class="fa-solid fa-location-crosshairs"></i>
         <span id="locationStatusText">Locating you…</span>
         <button id="retryLocationBtn" class="retry-location-btn" onclick="locateUser()" style="display:none;">Retry</button>
       </div>
-      <div id="ecosortMap" style="width:100%; height:320px; border-radius:4px; overflow:hidden; border:1px solid var(--line); position:relative;">
+      <div id="ecosortMap" class="map-canvas">
         <button id="recenterBtn" class="recenter-btn" style="display:none;" onclick="resumeFollowMode()">
           <i class="fa-solid fa-location-crosshairs"></i> Recenter
         </button>
@@ -447,11 +412,11 @@
       <div id="navStepsPanel" class="nav-steps-panel" style="display:none;">
         <div id="navStepsList" class="nav-steps-list"></div>
       </div>
-      <p style="color:var(--ink-soft); font-size:0.85rem; margin:14px 0; text-align:center;">
-        <i class="fa-solid fa-circle-info" style="color:var(--sig-recycle);"></i>
+      <p class="map-hint">
+        <i class="fa-solid fa-circle-info"></i>
         Tap a pin or "Navigate" on a shop to get live turn-by-turn directions.
       </p>
-      <div id="shopList" style="margin-top:2px; display:flex; flex-direction:column; gap:10px;"></div>
+      <div id="shopList" class="shop-list"></div>
     </div>
   </div>
 
@@ -488,11 +453,11 @@
     // ===== MAP MODAL =====
     const JUNK_SHOPS = [
       { name: "Atew Junkshop", address: "25 Brill St, Olongapo City", lat: 14.8402091, lng: 120.2838133, phone: "+63 930 222 4791" },
-      { name: "GLO'S Junkshop", address: "25 Brill St, Olongapo City", lat: 14.8401493, lng: 120.2838005, phone: "+63 999 496 3632", rating: "⭐ 5.0" },
+      { name: "GLO'S Junkshop", address: "25 Brill St, Olongapo City", lat: 14.8401493, lng: 120.2838005, phone: "+63 999 496 3632", rating: "5.0" },
       { name: "Thriftway Junkshop", address: "68 Fendler St, East Tapinac, Olongapo City", lat: 14.8325019, lng: 120.2843624, phone: "+63 949 371 0855" },
       { name: "Pacleb Junk Shop", address: "191 New Cabalan, Olongapo City", lat: 14.8386389, lng: 120.2838176 },
       { name: "Nickson Junkshop", address: "Block 14 Lot 1 Mayumi St, Olongapo City", lat: 14.8541131, lng: 120.2916457, phone: "+63 920 286 0483" },
-      { name: "Angeles Junkshop / Kleng Hauling", address: "2071 Purok 10, Old Cabalan, Olongapo City", lat: 14.849471, lng: 120.314867, phone: "+63 919 342 0326", rating: "⭐ 5.0", hours: "Mon–Sun 6AM–6PM" },
+      { name: "Angeles Junkshop / Kleng Hauling", address: "2071 Purok 10, Old Cabalan, Olongapo City", lat: 14.849471, lng: 120.314867, phone: "+63 919 342 0326", rating: "5.0", hours: "Mon–Sun 6AM–6PM" },
     ];
 
     let mapInitialized = false;
@@ -590,13 +555,13 @@
           type: 'line',
           source: 'route',
           layout: { 'line-cap': 'round', 'line-join': 'round' },
-          paint: { 'line-color': '#4A7C59', 'line-width': 5, 'line-opacity': 0.85 }
+          paint: { 'line-color': '#12503a', 'line-width': 6, 'line-opacity': 0.9 }
         });
 
         JUNK_SHOPS.forEach((shop, i) => {
           const el = document.createElement('div');
           el.className = 'shop-pin';
-          el.innerHTML = '<span>♻️</span>';
+          el.innerHTML = '<svg viewBox="0 0 256 256" aria-hidden="true"><use href="#ecosort-mark"/></svg>';
           el.addEventListener('click', () => showShopPopup(shop, i));
           shop._marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
             .setLngLat([shop.lng, shop.lat])
@@ -620,9 +585,9 @@
       const html = `<div class="shop-popup">
           <strong>${shop.name}</strong>
           <span class="shop-popup-line">${shop.address}</span>
-          ${shop.phone ? `<span class="shop-popup-line">📞 ${shop.phone}</span>` : ''}
-          ${shop.hours ? `<span class="shop-popup-line">🕐 ${shop.hours}</span>` : ''}
-          ${shop.rating ? `<span class="shop-popup-line">${shop.rating}</span>` : ''}
+          ${shop.phone ? `<span class="shop-popup-line">${shop.phone}</span>` : ''}
+          ${shop.hours ? `<span class="shop-popup-line">${shop.hours}</span>` : ''}
+          ${shop.rating ? `<span class="shop-popup-line">★ ${shop.rating}</span>` : ''}
           <button onclick="navigateTo(${i})">Navigate here</button>
         </div>`;
       new maplibregl.Popup({ offset: 28 })
@@ -786,15 +751,17 @@
       shops.forEach(({ shop, i, dist }) => {
         const div = document.createElement('div');
         div.innerHTML = `
-          <div style="display:flex;align-items:flex-start;gap:12px;background:#FBF8F1;border:1px solid rgba(34,37,31,0.12);border-radius:14px;padding:12px;">
-            <div style="background:#4A7C59;border-radius:12px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1rem;">♻️</div>
-            <div style="flex:1;">
-              <strong style="font-size:0.88rem;color:#22251F;">${shop.name}</strong>
-              ${shop.rating ? `<span style="font-size:0.76rem;color:#3A6247;margin-left:6px;">${shop.rating}</span>` : ''}
-              ${dist !== undefined ? `<span class="distance-badge">${dist < 1 ? Math.round(dist * 1000) + ' m' : dist.toFixed(1) + ' km'}</span>` : ''}
-              <p style="color:rgba(20,23,28,0.62);font-size:0.78rem;margin-top:2px;">${shop.address}</p>
-              ${shop.phone ? `<p style="color:#3A6247;font-size:0.78rem;margin-top:2px;">📞 ${shop.phone}</p>` : ''}
-              ${shop.hours ? `<p style="color:rgba(20,23,28,0.38);font-size:0.74rem;">${shop.hours}</p>` : ''}
+          <div class="shop-card">
+            <div class="shop-card-icon"><svg viewBox="0 0 256 256" aria-hidden="true"><use href="#ecosort-mark"/></svg></div>
+            <div class="shop-card-body">
+              <div class="shop-card-title">
+                <strong>${shop.name}</strong>
+                ${shop.rating ? `<span class="shop-card-rating">★ ${shop.rating}</span>` : ''}
+                ${dist !== undefined ? `<span class="distance-badge">${dist < 1 ? Math.round(dist * 1000) + ' m' : dist.toFixed(1) + ' km'}</span>` : ''}
+              </div>
+              <p class="shop-card-line">${shop.address}</p>
+              ${shop.phone ? `<p class="shop-card-line">${shop.phone}</p>` : ''}
+              ${shop.hours ? `<p class="shop-card-line muted">${shop.hours}</p>` : ''}
               <button class="navigate-btn" onclick="navigateTo(${i})"><i class="fa-solid fa-diamond-turn-right"></i> Navigate</button>
             </div>
           </div>`;
